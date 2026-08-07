@@ -82,7 +82,17 @@ def main():
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint.get('epoch', 0)
             best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
+            state_dict = checkpoint['state_dict']
+
+            new_state_dict = {}
+
+            for k, v in state_dict.items():
+                if k.startswith('module.'):
+                    k = k[7:]
+
+                new_state_dict[k] = v
+
+            model.load_state_dict(new_state_dict)
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.evaluate, checkpoint.get('epoch', 'unknown')))
         else:
@@ -126,6 +136,12 @@ def main():
         optimizer,
         milestones=[100, 150]
     )
+    if args.resume:
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+
+        if 'scheduler' in checkpoint:
+            lr_scheduler.load_state_dict(checkpoint['scheduler'])
     if args.arch in ['resnet1202', 'resnet110']:
         # for resnet1202 original paper uses lr=0.01 for first 400 minibatches for warm-up
         # then switch back. In this setup it will correspond for first epoch.
@@ -156,7 +172,11 @@ def main():
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, is_best, filename=os.path.join(args.save_dir, 'checkpoint.th'))
+                'optimizer': optimizer.state_dict(),
+                'scheduler': lr_scheduler.state_dict(),
+            },
+                is_best,
+                filename=os.path.join(args.save_dir, 'checkpoint.th'))
 
         save_checkpoint({
             'state_dict': model.state_dict(),
