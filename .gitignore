@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+.venv
+venv/
+env/
+
+# PyCharm
+.idea/
+
+# Dataset
+data/
+
+# Checkpoints
+*.th
+*.pth
+checkpoint/
+
+# Logs
+runs/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
