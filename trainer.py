@@ -77,6 +77,17 @@ def main():
 
     # optionally resume from a checkpoint
     if args.resume:
+        print("resume path:", args.resume)
+
+        print(
+            "exists:",
+            os.path.isfile(args.resume)
+        )
+        print("Current working directory:")
+        print(os.getcwd())
+
+        print("Absolute resume path:")
+        print(os.path.abspath(args.resume))
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
@@ -159,6 +170,10 @@ def main():
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
         train(train_loader, model, criterion, optimizer, epoch)
         lr_scheduler.step()
+        print(
+            "Current LR:",
+            optimizer.param_groups[0]['lr']
+        )
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion)
