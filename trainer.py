@@ -19,7 +19,7 @@ model_names = sorted(name for name in resnet.__dict__
                      and name.startswith("resnet")
                      and callable(resnet.__dict__[name]))
 
-print(model_names)
+# print(model_names)
 
 parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pytorch')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
@@ -52,7 +52,7 @@ parser.add_argument('--half', dest='half', action='store_true',
                     help='use half-precision(16-bit) ')
 parser.add_argument('--save-dir', dest='save_dir',
                     help='The directory used to save the trained models',
-                    default='save_temp', type=str)
+                    default='experiments/resnet32_baseline/checkpoints', type=str)
 parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
@@ -66,7 +66,7 @@ def main():
 
     # Check the save_dir exists or not
     if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
+        os.makedirs(args.save_dir, exist_ok=True)
 
     model = resnet.__dict__[args.arch]()
 
@@ -182,7 +182,7 @@ def main():
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
 
-        if epoch > 0 and epoch % args.save_every == 0:
+        if (epoch + 1) % args.save_every == 0:
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
@@ -191,12 +191,13 @@ def main():
                 'scheduler': lr_scheduler.state_dict(),
             },
                 is_best,
-                filename=os.path.join(args.save_dir, 'checkpoint.th'))
+                filename=os.path.join(args.save_dir, 'checkpoint_last.pth'))
 
         save_checkpoint({
+            'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-        }, is_best, filename=os.path.join(args.save_dir, 'model.th'))
+        }, is_best, filename=os.path.join(args.save_dir, 'model_best.pth'))
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
