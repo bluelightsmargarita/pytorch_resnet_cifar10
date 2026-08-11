@@ -12,7 +12,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import resnet
-from torch.utils.tensorboard import SummaryWriter
+from utils import Cutout
 
 model_names = sorted(name for name in resnet.__dict__
     if name.islower() and not name.startswith("__")
@@ -119,6 +119,7 @@ def main():
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
+            Cutout(n_holes=1, length=16),
             normalize,
         ]), download=True),
         batch_size=args.batch_size, shuffle=True,
@@ -144,9 +145,10 @@ def main():
                                 weight_decay=args.weight_decay)
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer,
-        milestones=[100, 150]
-    )
+    optimizer,
+    milestones=[100,150],
+    gamma = 0.1
+)
     if args.resume:
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])

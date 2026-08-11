@@ -85,6 +85,8 @@ Momentum:
 Weight decay:
 1e-4
 
+Augmentation:
+RandomCrop + RandomHorizontalFlip
 
 ## Scheduler
 
@@ -156,7 +158,8 @@ Momentum:
 Weight decay:
 1e-4
 
-
+Augmentation:
+RandomCrop + RandomHorizontalFlip
 ## 5. Learning Rate Scheduler
 
 Scheduler:
