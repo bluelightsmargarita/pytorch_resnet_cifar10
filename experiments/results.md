@@ -120,3 +120,14 @@ Cutout improves test accuracy by approximately 0.67%.
 Although training accuracy decreases,
 the model achieves better generalization ability,
 indicating that Cutout provides effective regularization.
+
+## Experiment3: Mixup
+
+Model:
+ResNet32
+
+Augmentation:
+RandomCrop + RandomHorizontalFlip + Mixup(alpha=1.0)
+
+Best Accuracy:
+93.09%

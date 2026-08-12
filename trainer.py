@@ -12,7 +12,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import resnet
-from utils import Cutout
+from utils import Cutout,mixup_data, mixup_criterion
 
 model_names = sorted(name for name in resnet.__dict__
     if name.islower() and not name.startswith("__")
@@ -225,8 +225,23 @@ def train(train_loader, model, criterion, optimizer, epoch):
             input_var = input_var.half()
 
         # compute output
+        input_var, target_a, target_b, lam = mixup_data(
+            input_var,
+            target_var,
+            alpha=1.0
+        )
+
+        # compute output
         output = model(input_var)
-        loss = criterion(output, target_var)
+
+        # Mixup loss
+        loss = mixup_criterion(
+            criterion,
+            output,
+            target_a,
+            target_b,
+            lam
+        )
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
