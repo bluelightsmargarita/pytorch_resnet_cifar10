@@ -40,6 +40,9 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
+parser.add_argument('--mixup-alpha', default=1.0, type=float,
+                    metavar='A',
+                    help='mixup alpha parameter (default: 1.0)')
 parser.add_argument('--print-freq', '-p', default=50, type=int,
                     metavar='N', help='print frequency (default: 50)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -134,7 +137,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1).cuda()
+    criterion = nn.CrossEntropyLoss().cuda()
 
     if args.half:
         model.half()
@@ -225,23 +228,23 @@ def train(train_loader, model, criterion, optimizer, epoch):
             input_var = input_var.half()
 
         # compute output
-        # input_var, target_a, target_b, lam = mixup_data(
-        #     input_var,
-        #     target_var,
-        #     alpha=1.0
-        # )
+        input_var, target_a, target_b, lam = mixup_data(
+            input_var,
+            target_var,
+            alpha=args.mixup_alpha
+        )
 
         # compute output
         output = model(input_var)
-        loss = criterion(output, target_var)
+        # loss = criterion(output, target_var)
         # Mixup loss
-        # loss = mixup_criterion(
-        #     criterion,
-        #     output,
-        #     target_a,
-        #     target_b,
-        #     lam
-        # )
+        loss = mixup_criterion(
+            criterion,
+            output,
+            target_a,
+            target_b,
+            lam
+        )
 
         # compute gradient and do SGD step
         optimizer.zero_grad()

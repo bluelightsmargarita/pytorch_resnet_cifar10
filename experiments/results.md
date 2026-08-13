@@ -195,3 +195,13 @@ Label Smoothing improves test accuracy by approximately 0.38%.
 
 The improvement is smaller than Cutout and Mixup,
 but it still provides a positive regularization effect.
+
+## Experiment 6: Mixup Alpha Sensitivity
+
+| Alpha | Best Accuracy |
+|------:|--------------:|
+| 0.2 | 93.39% |
+| 1.0 | 93.09% |
+
+Current best:
+Mixup(alpha=0.2) = 93.39%
