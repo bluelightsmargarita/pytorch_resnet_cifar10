@@ -38,7 +38,7 @@ Epoch:
 200
 
 Accuracy:
-92.11%
+92.21%
 
 Observation:
 CosineAnnealingLR produced comparable performance,
@@ -121,7 +121,7 @@ Although training accuracy decreases,
 the model achieves better generalization ability,
 indicating that Cutout provides effective regularization.
 
-## Experiment3: Mixup
+## Experiment3: Mixup+cutout
 
 Model:
 ResNet32
@@ -131,3 +131,67 @@ RandomCrop + RandomHorizontalFlip + Mixup(alpha=1.0)
 
 Best Accuracy:
 93.09%
+
+## Experiment 4: Label Smoothing
+
+### Configuration
+
+Model:
+ResNet32
+
+Dataset:
+CIFAR10
+
+Optimizer:
+SGD
+
+Learning rate:
+0.1
+
+Momentum:
+0.9
+
+Weight decay:
+1e-4
+
+Scheduler:
+MultiStepLR
+
+Milestones:
+[100, 150]
+
+Gamma:
+0.1
+
+Epochs:
+200
+
+Batch size:
+128
+
+
+### Data Augmentation
+
+- RandomHorizontalFlip
+- RandomCrop
+
+
+### Label Smoothing
+
+label_smoothing = 0.1
+
+
+### Result
+
+Best Accuracy:
+
+92.69%
+
+
+### Observation
+
+Compared with baseline (92.31%),
+Label Smoothing improves test accuracy by approximately 0.38%.
+
+The improvement is smaller than Cutout and Mixup,
+but it still provides a positive regularization effect.

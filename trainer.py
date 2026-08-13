@@ -119,7 +119,7 @@ def main():
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
-            Cutout(n_holes=1, length=16),
+            # Cutout(n_holes=1, length=16),
             normalize,
         ]), download=True),
         batch_size=args.batch_size, shuffle=True,
@@ -134,7 +134,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1).cuda()
 
     if args.half:
         model.half()
@@ -225,23 +225,23 @@ def train(train_loader, model, criterion, optimizer, epoch):
             input_var = input_var.half()
 
         # compute output
-        input_var, target_a, target_b, lam = mixup_data(
-            input_var,
-            target_var,
-            alpha=1.0
-        )
+        # input_var, target_a, target_b, lam = mixup_data(
+        #     input_var,
+        #     target_var,
+        #     alpha=1.0
+        # )
 
         # compute output
         output = model(input_var)
-
+        loss = criterion(output, target_var)
         # Mixup loss
-        loss = mixup_criterion(
-            criterion,
-            output,
-            target_a,
-            target_b,
-            lam
-        )
+        # loss = mixup_criterion(
+        #     criterion,
+        #     output,
+        #     target_a,
+        #     target_b,
+        #     lam
+        # )
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
