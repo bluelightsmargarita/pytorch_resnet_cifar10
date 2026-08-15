@@ -230,3 +230,21 @@ Mixup(alpha=0.5) = 93.81%
 Current Best:
 
 Mixup(alpha=0.5) = 93.81%
+
+## Experiment 6: Multi-Seed Evaluation for Mixup(alpha=0.5)
+
+To evaluate the stability of the best Mixup configuration, the experiment was repeated with three different random seeds while keeping all other settings unchanged.
+
+| Seed | Best Accuracy |
+|-----:|--------------:|
+| 0    | 93.05%        |
+| 1    | 93.56%        |
+| 2    | 93.51%        |
+
+Mean Accuracy: 93.37%
+
+Standard Deviation: 0.28%
+
+Final Result:
+
+Mixup(alpha=0.5) = 93.37% ± 0.28%
