@@ -367,3 +367,113 @@ Mean accuracy improvement:
 +0.35 percentage points
 
 The optimized weight decay produced higher accuracy for all three tested random seeds, suggesting that the improvement is relatively stable across these runs.
+
+## Experiment 8: Dynamic Mixup Schedule
+
+### Motivation
+
+Previous experiments showed that Mixup with alpha=0.5 and weight decay=5e-4 achieved strong performance.
+
+This experiment investigates whether the Mixup strength should remain fixed throughout training, or change dynamically with training progress.
+
+The following schedules were compared:
+
+- Fixed: alpha remains 0.5
+- Decay: alpha linearly decreases from 0.5 toward 0
+- Warmup: alpha linearly increases from 0 toward 0.5
+
+All other settings were kept unchanged.
+
+### Configuration
+
+Model:
+ResNet32
+
+Dataset:
+CIFAR10
+
+Optimizer:
+SGD
+
+Learning rate:
+0.1
+
+Momentum:
+0.9
+
+Weight decay:
+5e-4
+
+Mixup base alpha:
+0.5
+
+Epochs:
+200
+
+Cutout:
+OFF
+
+Label Smoothing:
+OFF
+
+### Single-seed comparison
+
+| Schedule | Seed | Best Accuracy |
+|----------|------|---------------|
+| Fixed | 0 | 93.50% |
+| Decay | 0 | 93.18% |
+| Warmup | 0 | 93.63% |
+
+Compared with the fixed schedule:
+
+- Decay: -0.32 percentage points
+- Warmup: +0.13 percentage points
+
+The decay schedule did not improve performance.
+
+Warmup showed a small positive result on seed 0, so it was further evaluated with multiple random seeds.
+
+### Warmup Multi-seed Evaluation
+
+| Seed | Fixed | Warmup | Difference |
+|------|-------|--------|------------|
+| 0 | 93.50% | 93.63% | +0.13 |
+| 1 | 93.70% | 93.87% | +0.17 |
+| 2 | 93.96% | 93.76% | -0.20 |
+
+Fixed:
+
+93.72% ± 0.23%
+
+Warmup:
+
+93.75% ± 0.10%
+
+Mean improvement:
+
++0.03 percentage points
+
+### Observation
+
+Linear Mixup warmup did not produce a clear improvement in average accuracy compared with fixed alpha=0.5.
+
+Although warmup improved performance for seeds 0 and 1, it decreased performance for seed 2.
+
+Therefore, the current results do not support the conclusion that linear Mixup warmup consistently improves model accuracy.
+
+Warmup showed lower variation across the three tested seeds, but only three seeds were evaluated, so no strong conclusion about improved training stability is made.
+
+The decay schedule performed worse than the fixed schedule in the single-seed experiment.
+
+### Discussion
+
+The dynamic schedules also change the average Mixup strength over the whole training process.
+
+For example, a linear schedule between 0 and 0.5 has an average alpha of approximately 0.25, whereas the fixed schedule keeps alpha=0.5 throughout training.
+
+Therefore, differences between fixed and dynamic schedules may reflect both:
+
+1. the temporal distribution of Mixup strength
+2. the total amount of Mixup regularization
+
+A future experiment could control for average Mixup strength to separate these two effects.

@@ -45,6 +45,8 @@ parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
 parser.add_argument('--mixup-alpha', default=1.0, type=float,
                     metavar='A',
                     help='mixup alpha parameter (default: 1.0)')
+parser.add_argument('--mixup-schedule',default='fixed',type=str,choices=['fixed', 'decay', 'warmup'],
+                    help='mixup alpha schedule: fixed, decay, or warmup')
 parser.add_argument('--print-freq', '-p', default=50, type=int,
                     metavar='N', help='print frequency (default: 50)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -214,6 +216,18 @@ def main():
             'best_prec1': best_prec1,
         }, is_best, filename=os.path.join(args.save_dir, 'model_best.pth'))
 
+def get_mixup_alpha(epoch, total_epochs, base_alpha, schedule):
+    if schedule == 'fixed':
+        return base_alpha
+
+    elif schedule == 'decay':
+        return base_alpha * (1 - epoch / total_epochs)
+
+    elif schedule == 'warmup':
+        return base_alpha * (epoch / total_epochs)
+
+    else:
+        raise ValueError(f'Unknown mixup schedule: {schedule}')
 
 def train(train_loader, model, criterion, optimizer, epoch):
     """
@@ -226,6 +240,17 @@ def train(train_loader, model, criterion, optimizer, epoch):
     # switch to train mode
     model.train()
     end = time.time()
+    current_alpha = get_mixup_alpha(
+        epoch,
+        args.epochs,
+        args.mixup_alpha,
+        args.mixup_schedule
+    )
+    print(
+        f'Epoch {epoch}: '
+        f'Mixup schedule={args.mixup_schedule}, '
+        f'alpha={current_alpha:.4f}'
+    )
     for i, (input, target) in enumerate(train_loader):
 
         # measure data loading time
@@ -241,7 +266,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         input_var, target_a, target_b, lam = mixup_data(
             input_var,
             target_var,
-            alpha=args.mixup_alpha
+            alpha=current_alpha
         )
 
         # compute output
