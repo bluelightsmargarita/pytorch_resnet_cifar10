@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import time
+import json
 
 import torch
 import torch.nn as nn
@@ -65,12 +66,39 @@ parser.add_argument('--save-every', dest='save_every',
                     type=int, default=10)
 parser.add_argument('--seed',type=int,default=0,
                     help='Random seed for reproducibility')
+parser.add_argument('--data-root', default='./data')
+parser.add_argument('--val-size', type=int, default=5000)
+parser.add_argument('--split-seed', type=int, default=42)
+parser.add_argument('--eval-split', choices=['val', 'test'], default='val')
+parser.add_argument('--download', action='store_true', help='Allow dataset download')
 best_prec1 = 0
+
+
+def make_split(targets, val_size, split_seed):
+    """Fixed class-balanced split, independent of the training seed."""
+    classes = sorted(set(targets))
+    if val_size <= 0 or val_size >= len(targets) or val_size % len(classes):
+        raise ValueError('val-size must be positive, below dataset size, and divisible by class count')
+    per_class = val_size // len(classes)
+    rng = random.Random(split_seed)
+    train_ids, val_ids = [], []
+    for label in classes:
+        ids = [i for i, y in enumerate(targets) if y == label]
+        if per_class >= len(ids):
+            raise ValueError('Validation split would empty a training class')
+        rng.shuffle(ids)
+        val_ids.extend(ids[:per_class])
+        train_ids.extend(ids[per_class:])
+    return sorted(train_ids), sorted(val_ids)
 
 
 def main():
     global args, best_prec1
     args = parser.parse_args()
+    if args.eval_split == 'test' and not args.evaluate:
+        parser.error('--eval-split test requires --evaluate')
+    if args.evaluate and not args.resume:
+        parser.error('--evaluate requires --resume')
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -105,7 +133,9 @@ def main():
         print(os.path.abspath(args.resume))
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
+            checkpoint = torch.load(args.resume, map_location='cpu')
+            if not args.evaluate and checkpoint.get('data_protocol') != {'val_size': args.val_size, 'split_seed': args.split_seed}:
+                raise ValueError('Resume requires a checkpoint with the same train/validation protocol. Start a new run for old checkpoints.')
             args.start_epoch = checkpoint.get('epoch', 0)
             best_prec1 = checkpoint['best_prec1']
             state_dict = checkpoint['state_dict']
@@ -118,34 +148,46 @@ def main():
 
                 new_state_dict[k] = v
 
-            model.load_state_dict(new_state_dict)
+            load_model = model.module if isinstance(
+                model, torch.nn.DataParallel) else model
+            load_model.load_state_dict(new_state_dict)
             print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.evaluate, checkpoint.get('epoch', 'unknown')))
+                  .format(args.resume, checkpoint.get('epoch', 'unknown')))
         else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+            raise FileNotFoundError(args.resume)
 
     cudnn.benchmark = True
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-    train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(32, 4),
-            transforms.ToTensor(),
-            # Cutout(n_holes=1, length=16),
-            normalize,
-        ]), download=True),
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
-
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 4),
+        transforms.ToTensor(), normalize,
+    ])
+    eval_transform = transforms.Compose([transforms.ToTensor(), normalize])
+    if args.evaluate and args.eval_split == 'test':
+        eval_set = datasets.CIFAR10(root=args.data_root, train=False,
+                                   transform=eval_transform, download=args.download)
+    else:
+        train_set = datasets.CIFAR10(root=args.data_root, train=True,
+                                    transform=train_transform, download=args.download)
+        val_set = datasets.CIFAR10(root=args.data_root, train=True,
+                                  transform=eval_transform, download=False)
+        train_ids, val_ids = make_split(train_set.targets, args.val_size, args.split_seed)
+        eval_set = torch.utils.data.Subset(val_set, val_ids)
+        print(f'Data split: train={len(train_ids)}, val={len(val_ids)}, split_seed={args.split_seed}')
+        if not args.evaluate:
+            train_loader = torch.utils.data.DataLoader(
+                torch.utils.data.Subset(train_set, train_ids),
+                batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True)
+            with open(os.path.join(args.save_dir, 'split_indices.json'), 'w') as f:
+                json.dump({'split_seed': args.split_seed, 'train': train_ids, 'val': val_ids}, f)
+            with open(os.path.join(args.save_dir, 'run_config.json'), 'w') as f:
+                json.dump(vars(args), f, indent=2)
     val_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=128, shuffle=False,
+        eval_set, batch_size=128, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and optimizer
@@ -170,7 +212,7 @@ def main():
 
         if 'scheduler' in checkpoint:
             lr_scheduler.load_state_dict(checkpoint['scheduler'])
-    if args.arch in ['resnet1202', 'resnet110']:
+    if not args.resume and args.arch in ['resnet1202', 'resnet110']:
         # for resnet1202 original paper uses lr=0.01 for first 400 minibatches for warm-up
         # then switch back. In this setup it will correspond for first epoch.
         for param_group in optimizer.param_groups:
@@ -178,7 +220,7 @@ def main():
 
 
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, criterion, label=args.eval_split.capitalize())
         return
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -199,22 +241,25 @@ def main():
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
 
-        if (epoch + 1) % args.save_every == 0:
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'best_prec1': best_prec1,
-                'optimizer': optimizer.state_dict(),
-                'scheduler': lr_scheduler.state_dict(),
-            },
-                is_best,
-                filename=os.path.join(args.save_dir, 'checkpoint_last.pth'))
-
-        save_checkpoint({
+        state = {
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-        }, is_best, filename=os.path.join(args.save_dir, 'model_best.pth'))
+            'optimizer': optimizer.state_dict(),
+            'scheduler': lr_scheduler.state_dict(),
+            'data_protocol': {'val_size': args.val_size, 'split_seed': args.split_seed},
+        }
+
+        save_checkpoint(
+            state, False,
+            filename=os.path.join(args.save_dir, 'checkpoint_last.pth')
+        )
+
+        if is_best:
+            save_checkpoint(
+                state, True,
+                filename=os.path.join(args.save_dir, 'model_best.pth')
+            )
 
 def get_mixup_alpha(epoch, total_epochs, base_alpha, schedule):
     if schedule == 'fixed':
@@ -307,7 +352,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       data_time=data_time, loss=losses, top1=top1))
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, label='Val'):
     """
     Run evaluation
     """
@@ -345,14 +390,14 @@ def validate(val_loader, model, criterion):
             end = time.time()
 
             if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
+                print(label + ': [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                           i, len(val_loader), batch_time=batch_time, loss=losses,
                           top1=top1))
 
-    print(' * Prec@1 {top1.avg:.3f}'
+    print(label + ' * Prec@1 {top1.avg:.3f}'
           .format(top1=top1))
 
     return top1.avg
