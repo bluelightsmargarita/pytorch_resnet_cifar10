@@ -1,0 +1,12 @@
+Random seed: 0
+resume path: experiments/mixup05_split_seed2_20261014/checkpoints/model_best.pth
+exists: True
+Current working directory:
+/home/ch/projects/pytorch_resnet_cifar10-master
+Absolute resume path:
+/home/ch/projects/pytorch_resnet_cifar10-master/experiments/mixup05_split_seed2_20261014/checkpoints/model_best.pth
+=> loading checkpoint 'experiments/mixup05_split_seed2_20261014/checkpoints/model_best.pth'
+=> loaded checkpoint 'experiments/mixup05_split_seed2_20261014/checkpoints/model_best.pth' (epoch 187)
+Test: [0/79]	Time 0.456 (0.456)	Loss 0.3005 (0.3005)	Prec@1 94.531 (94.531)
+Test: [50/79]	Time 0.044 (0.055)	Loss 0.2866 (0.2649)	Prec@1 92.188 (93.122)
+Test * Prec@1 93.240
